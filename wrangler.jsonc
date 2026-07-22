@@ -1,0 +1,57 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "doggybot",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-04-03",
+  // Streams (FixedLengthStream), URL, and global fetch are Workers-native; this
+  // is kept for parity with the runtime the engine was validated on and is
+  // harmless if unused.
+  "compatibility_flags": ["nodejs_compat"],
+
+  "observability": {
+    "enabled": true
+  },
+
+  // The R2 bucket your Takeout zips land in. Create it once with
+  //   wrangler r2 bucket create doggybot-takeout
+  // then set bucket_name to match (or use your own name).
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "doggybot-takeout"
+    }
+  ],
+
+  // The per-file transfer Workflow: one durable instance per Drive file, whose
+  // instance id = Drive file id = the idempotency lock. class_name is the
+  // subclass exported from src/index.ts.
+  "workflows": [
+    {
+      "binding": "TRANSFER",
+      "name": "doggybot-takeout-transfer",
+      "class_name": "TakeoutTransferWorkflow"
+    }
+  ],
+
+  // Discovery poll. Default: at :23 every 6 hours. Takeout exports land
+  // infrequently, so a frequent cron just wastes list calls.
+  "triggers": {
+    "crons": ["23 */6 * * *"]
+  },
+
+  // Non-sensitive config. SECRETS (GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN,
+  // optional CONTROL_TOKEN) are NOT here — set them with `wrangler secret put`.
+  "vars": {
+    // Your OAuth Desktop client id. Not sensitive; safe to commit in your fork.
+    "GOOGLE_CLIENT_ID": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+    // Where staged objects go: <prefix><batchKey>/<name>.
+    "R2_KEY_PREFIX": "takeout/",
+    // Drive files.list query. Default matches Takeout zips anywhere in the
+    // account. To restrict to one folder, use:
+    //   "'YOUR_FOLDER_ID' in parents and trashed = false"
+    "DRIVE_QUERY": "name contains 'takeout' and trashed = false",
+    // Settle guard (seconds): skip a batch whose newest file is younger than
+    // this — it may still be uploading. Default 3600 (one quiet hour).
+    "SETTLE_AGE_SECONDS": "3600"
+  }
+}

@@ -12,6 +12,10 @@ dist/
 .env
 .env.*
 
+# TypeScript / wrangler generated
+*.tsbuildinfo
+worker-configuration.d.ts
+
 # OS / editor
 .DS_Store
 *.log
